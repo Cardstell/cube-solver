@@ -5,7 +5,6 @@
 #include <random>
 #include <iomanip>
 #include <chrono>
-
 using namespace std;
 
 const int N = 3;
@@ -320,10 +319,10 @@ void RotationStressTest() {
 		fillcubes(cubes);
 		auto algo = generateRotations(100);
 		run(cubes, algo);
-		auto st = Solver::getInitialState();
-		st = Solver::runAlgo(st, algo);
+		auto st = solver::getInitialState();
+		st = solver::runAlgo(st, algo);
 		string trueAnswer = getStringCube(cubes);
-		string currentAnswer = Solver::stateToCube(st);
+		string currentAnswer = solver::stateToCube(st);
 		if (trueAnswer != currentAnswer) {
 			cout<<"Wrong answer"<<endl;
 			cout<<trueAnswer<<endl<<currentAnswer<<endl;
@@ -335,13 +334,88 @@ void RotationStressTest() {
 }
 
 void RotationTest() {
-	auto st = Solver::getInitialState();
+	auto st = solver::getInitialState();
 	for (int i = 0;i<1e7;++i) {
-		st = Solver::rotateState(st, 0);
+		st = solver::rotateState(st, 0);
 	}
 }
 
+void CacheTest() {
+	solver s1, s2;
+	for (int i = 0;i<6e7;++i) {
+		int t1 = rng(), t2 = rng(), t3 = rng(); 
+		s1.states[{t1,t2}] = t3;
+		s2.states[{t1,t2}] = t3;
+	}
+	s1.saveCacheToDisk();
+	s1.loadCacheFromDisk();
+	/*for (auto i : s1.states) cout<<i.first.first<<" "<<(long)i.first.second<<" "<<i.second<<endl;
+		cout<<"-----------\n";
+	for (auto i : s2.states) cout<<i.first.first<<" "<<(long)i.first.second<<" "<<i.second<<endl;
+	*/
+	cout << s1.states.size() << " " << s2.states.size() << endl;
+	if (s1.states != s2.states) cout << "Caches not equal!" << endl;
+	else cout << "Test passed" << endl;
+}
+
+void HashmapStressTest() {
+	boost::unordered_map<stateType,int> s1, s2;
+	hashmap<stateType,int> hs(1e5);
+	const int N = 1e3;
+	for (int i = 0;i<1e5;++i) {
+		int a = rng()%N, b = rng()%N, c = rng()%N;
+		s1[{a,b}] = c;
+		hs.insert({a,b}, c);
+		a = rng()%N, b = rng()%N, c = rng()%N;
+		s1.erase({a,b});
+		hs.erase({a,b});
+	}
+	for (int i = 0;i<N;++i) {
+		for (int j = 0;j<N;++j) {
+			if (hs.find({i,j}))
+				s2[{i,j}] = hs[{i,j}];
+		}
+	}
+	if (s1 != s2) cout << "Maps not equal!" << endl;
+	else cout << "Test passed" << endl;
+}
+
+const int hN = 6e7;
+const string shN = "6e7";
+hashmap<stateType, int> hm(1 << 25);
+boost::unordered_map<stateType, int> um;
+
+void HashmapInsertTest() {
+	for (int i = 0;i<hN;++i) {
+		hm.insert({rng(), 1}, 2);
+	}
+}
+
+void UnorderedMapInsertTest() {
+	for (int i = 0;i<hN;++i) {
+		um[{rng(), 1}] = 2;
+	}	
+}
+
+void HashmapFindTest() {
+	for (int i = 0;i<hN;++i) {
+		hm.find({rng(), 1});
+	}
+}
+
+void UnorderedMapFindTest() {
+	for (int i = 0;i<hN;++i) {
+		um.find({rng(), 1});
+	}	
+}
+
 void runTests() {
-	RotationStressTest();
-	check_time(RotationTest, 1, "1e7 rotations");
+	//RotationStressTest();
+	//check_time(RotationTest, 1, "1e7 rotations");
+	//check_time(CacheTest, "Cache test (1e5)");
+	//HashmapStressTest();
+	check_time(HashmapInsertTest, 1, shN + " insertions in hash table");
+	//check_time(UnorderedMapInsertTest, 1, shN + " insertions in unordered_map");
+	check_time(HashmapFindTest, 1, shN + " findings in hash table");
+	//check_time(UnorderedMapFindTest, 1, shN + " findings in unordered_map");
 }

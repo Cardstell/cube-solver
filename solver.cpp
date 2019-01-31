@@ -1,8 +1,12 @@
 #include "solver.h"
 #include <iostream>
-#include <thread>
+#include <fstream>
 #include <string>
-
+#include <boost/serialization/serialization.hpp>
+#include <boost/serialization/boost_unordered_map.hpp>
+#include <boost/serialization/utility.hpp>
+#include <boost/archive/text_iarchive.hpp>
+#include <boost/archive/text_oarchive.hpp>
 typedef std::pair<int, __int128> stateType;
 #define dbg(x) std::cout << #x << " = " << x << std::endl;
 
@@ -10,20 +14,91 @@ typedef std::pair<int, __int128> stateType;
 	URFDLB
 */
 
-Solver::Solver() {
-	cacheLoaded = loadCacheFromDisk();
+solver::solver() {
+	//cacheLoaded = loadCacheFromDisk();
 }
 
-Solver::~Solver() {
+solver::~solver() {
 	states.clear();
 }
 
-bool Solver::loadCacheFromDisk() {
-
+bool solver::loadCacheFromDisk() {
+	std::ifstream fileCache;
+	fileCache.open("cache", std::ios::binary);
+	if (!fileCache.is_open()) {
+		std::cout << "Cache not found" << std::endl;
+		return 0;
+	}
+	states.clear();
+	std::cout << "Loading cache" << std::endl;
+	long allsize = -fileCache.tellg();
+	fileCache.seekg(0, std::ios::end);
+	allsize += fileCache.tellg();
+	fileCache.seekg(0, std::ios::beg);
+	long size = std::min(allsize, blocksize);
+	long cnt = 0, ptr = 0;
+	fileCache.read(memblock, size);
+	for (int i = 0;i<allsize;i += 24) {
+		unsigned int tmp = 0, tmp3 = 0;
+		__int128 tmp2 = 0;
+		for (int j = 0;j<4;++j) {
+			tmp >>= 8;
+			tmp |= memblock[ptr++] << 24;
+		}
+		for (int j = 0;j<16;++j) {
+			tmp2 >>= 8;
+			tmp2 &= (((__int128)1) << 120) - 1;
+			tmp2 |= (__int128)memblock[ptr++] << 120;
+		}
+		for (int j = 0;j<4;++j) {
+			tmp3 >>= 8;
+			tmp3 |= (unsigned char)memblock[ptr++] << 24;
+		}
+		states[{tmp, tmp2}] = tmp3;
+		cnt += 24;
+		if (ptr >= blocksize) {
+			size = std::min(blocksize, allsize - cnt);
+			//fileCache.seekg(cnt, std::ios::beg);
+			fileCache.read(memblock, size);
+			ptr = 0;
+		}
+	}
+	fileCache.close();
 }
 
-bool Solver::saveCacheToDisk() {
-
+bool solver::saveCacheToDisk() {
+	std::ofstream fileCache;
+	fileCache.open("cache", std::ios::binary);
+	if (!fileCache.is_open()) return 0;
+	long allsize = 24 * states.size(), size = 0;
+	long ptr = 0, cnt = 0;
+	size = std::min(blocksize, allsize);
+	for (auto i : states) {
+		int tmp = i.first.first;
+		__int128 tmp2 = i.first.second;
+		int tmp3 = i.second;
+		for (int j = 0;j<4;++j) {
+			memblock[ptr++] = tmp;
+			tmp >>= 8;
+		}
+		for (int j = 0;j<16;++j) {
+			memblock[ptr++] = tmp2;
+			tmp2 >>= 8;
+		}
+		for (int j = 0;j<4;++j) {
+			memblock[ptr++] = tmp3;
+			tmp3 >>= 8;
+		}
+		cnt += 24;
+		if (ptr >= blocksize) {
+			fileCache.write(memblock, size);
+			ptr = 0;
+			size = std::min(blocksize, allsize - cnt);		
+		}
+	}
+	fileCache.write(memblock, size);
+	fileCache.close();
+	return 1;
 }
 
 inline int getLetterPosition(char c) {
@@ -38,7 +113,7 @@ inline int getLetterPosition(char c) {
 	}
 }
 
-stateType Solver::cubeToState(std::string cube) {
+stateType solver::cubeToState(std::string cube) {
 	stateType result = {0,0};
 	if (cube.size() != 54) return result;
 	int cnt = 0;
@@ -52,7 +127,7 @@ stateType Solver::cubeToState(std::string cube) {
 	return result;
 }
 
-std::string Solver::stateToCube(stateType state) {
+std::string solver::stateToCube(stateType state) {
 	const std::string let = "URFDLB";
 	std::string result(54, ' ');
 	for (int i = 0;i<6;++i) 
@@ -89,7 +164,7 @@ inline void swapColors(int &x, int a, int b, int c, int d) {
 	swapColors(x, a, x, b, x, c, x, d);
 }
 
-stateType Solver::rotateState(stateType state, int rotation) {
+stateType solver::rotateState(stateType state, int rotation) {
 	int up = state.second & 0xFFFFFF;
 	state.second >>= 24;
 	int right = state.second & 0xFFFFFF;
@@ -153,7 +228,7 @@ stateType Solver::rotateState(stateType state, int rotation) {
 	return result;
 }
 
-std::vector<std::string> Solver::split(std::string s) {
+std::vector<std::string> solver::split(std::string s) {
 	std::vector<std::string> ans;
 	int start = 0;
 	for (int i = 0;i<s.size();++i) {
@@ -170,7 +245,7 @@ std::vector<std::string> Solver::split(std::string s) {
 	return ans;
 }
 
-stateType Solver::runAlgo(stateType state, std::string algo) {
+stateType solver::runAlgo(stateType state, std::string algo) {
 	auto rotations = split(algo);
 	for (auto i : rotations) {
 		int count = 1, pos = getLetterPosition(i[0]);
@@ -182,6 +257,6 @@ stateType Solver::runAlgo(stateType state, std::string algo) {
 	return state;
 }
 
-stateType Solver::getInitialState() {
+stateType solver::getInitialState() {
 	return cubeToState("UUUUUUUUURRRRRRRRRFFFFFFFFFDDDDDDDDDLLLLLLLLLBBBBBBBBB");
 }
