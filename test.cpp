@@ -365,7 +365,7 @@ void HashmapStressTest() {
 	for (int i = 0;i<1e5;++i) {
 		int a = rng()%N, b = rng()%N, c = rng()%N;
 		s1[{a,b}] = c;
-		hs.insert({a,b}, c);
+		hs[{a,b}] = c;
 		a = rng()%N, b = rng()%N, c = rng()%N;
 		s1.erase({a,b});
 		hs.erase({a,b});
@@ -376,18 +376,18 @@ void HashmapStressTest() {
 				s2[{i,j}] = hs[{i,j}];
 		}
 	}
-	if (s1 != s2) cout << "Maps not equal!" << endl;
-	else cout << "Test passed" << endl;
+	if (s1 != s2) cout << "Hashmap stress test: maps not equal" << endl;
+	else cout << "Hashmap stress test passed" << endl;
 }
 
-const int hN = 6e7;
-const string shN = "6e7";
-hashmap<stateType, int> hm(1 << 25);
+const int hN = 1e6;
+const string shN = to_string(hN);
+hashmap<stateType, int> hm(2*hN);
 boost::unordered_map<stateType, int> um;
 
 void HashmapInsertTest() {
 	for (int i = 0;i<hN;++i) {
-		hm.insert({rng(), 1}, 2);
+		hm[{rng(), 1}] = 2;
 	}
 }
 
@@ -413,9 +413,9 @@ void runTests() {
 	//RotationStressTest();
 	//check_time(RotationTest, 1, "1e7 rotations");
 	//check_time(CacheTest, "Cache test (1e5)");
-	//HashmapStressTest();
+	HashmapStressTest();
 	check_time(HashmapInsertTest, 1, shN + " insertions in hash table");
-	//check_time(UnorderedMapInsertTest, 1, shN + " insertions in unordered_map");
 	check_time(HashmapFindTest, 1, shN + " findings in hash table");
-	//check_time(UnorderedMapFindTest, 1, shN + " findings in unordered_map");
+	check_time(UnorderedMapInsertTest, 1, shN + " insertions in unordered_map");
+	check_time(UnorderedMapFindTest, 1, shN + " findings in unordered_map");
 }

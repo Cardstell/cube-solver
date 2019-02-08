@@ -1,7 +1,7 @@
 #pragma once
 #include <vector>
 #include <iostream>
-#include <assert.h>
+#include <stdexcept>
 
 template <typename T1, typename T2>
 class hashmap {
@@ -10,14 +10,13 @@ private:
 	size_t sizemask = 0;
 
 public:
-	hashmap(unsigned int tablesize) {
+	hashmap(size_t tablesize) {
 		sizemask = 1;
 		while (sizemask < tablesize) sizemask <<= 1;
 		if (sizemask > tablesize) sizemask >>= 1;
 		tablesize = sizemask;
 		sizemask--;
-		std::vector<std::pair<T1,T2> > el;
-		table.resize(tablesize, el);
+		table.resize(tablesize, std::vector<std::pair<T1,T2> >());
 	}
 
 	hashmap() {
@@ -26,6 +25,7 @@ public:
 	
 	~hashmap() {
 		table.clear();
+		table.shrink_to_fit();
 	}
 
 	void insert(T1 key, T2 value) {
@@ -54,6 +54,8 @@ public:
 			if (i.first == key) 
 				return i.second;
 		}
+		table[hkey].push_back({key, NULL});
+		return table[hkey].back().second;
 	}
 
 	void erase(T1 key) {
@@ -66,29 +68,19 @@ public:
 		}
 	}
 
-	T2 operator[] (T1 key) {
+	T2& operator[] (T1 key) {
         return get(key);
     }
 
 private:
-	size_t hash(int x) {
-		x = (x ^ 61) ^ (x << 16);
-		x += (x << 3);
-		x ^= (x >> 4);
-		x *= 0x27d4eb2d;
-		x ^= x >> 15;
-		return x & sizemask;
-	}
-	
-	size_t hash(long long x) {
-		return ((hash((int)(x >> 32)) << 2) ^ hash((int)x)) & sizemask;
-	}
-
-	size_t hash(__int128 x) {
-		return ((hash((long long)(x >> 64)) << 2) ^ hash((long long)x)) & sizemask;
-	}
 
 	size_t hash(std::pair<auto, auto> x) {
 		return ((hash(x.first) << 2) ^ hash(x.second)) & sizemask;
+	}
+
+    template <typename T>
+	size_t hash(T x) {
+		std::hash<int> h;
+		return h(x) & sizemask;
 	}
 };
